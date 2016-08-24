@@ -1,0 +1,18 @@
+include MANIFEST.in
+include requirements.txt
+include *.json
+include *.md
+include *.py
+include *.txt
+recursive-include mnt_oauth *.css
+recursive-include mnt_oauth *.csv
+recursive-include mnt_oauth *.html
+recursive-include mnt_oauth *.ico
+recursive-include mnt_oauth *.js
+recursive-include mnt_oauth *.json
+recursive-include mnt_oauth *.md
+recursive-include mnt_oauth *.png
+recursive-include mnt_oauth *.py
+recursive-include mnt_oauth *.svg
+recursive-include mnt_oauth *.txt
+recursive-exclude mnt_oauth *.pyc
