@@ -15,7 +15,7 @@ credentials = None
 
 #preauth.
 @frappe.whitelist(allow_guest=True)
-def mnt_authorize(*args, **kwargs):
+def mnt_pre_authorize(*args, **kwargs):
 	# for i in frappe.local.request:
 	# 	print i
 	#return frappe.get_request_header("")
@@ -31,6 +31,9 @@ def mnt_authorize(*args, **kwargs):
 	# http_method = 'POST'
 	# #headers = frappe.form_dict 
 
+	response_html_params = {}
+	resp_html = ""
+
 	try:
 		uri = r.url
 		http_method = r.method
@@ -39,10 +42,20 @@ def mnt_authorize(*args, **kwargs):
 
 		scopes, credentials = oauth_server.validate_authorization_request(uri, http_method, body, headers)
 
-		resp_html = "<div><h1>Allow {cli_id} &#63;</h1></div>".format(cli_id=kwargs['client_id'])
+		success_url = "http://0.0.0.0:8000/redir.html?auth_code={auth_code}".format(auth_code=credentials['client_id']),
+		
+		#resp_html = "<div><h1>Allow {cli_id} &#63;</h1></div>".format(cli_id=kwargs['client_id'])
+		response_html_params = frappe._dict({
+			"client_id": kwargs['client_id'],
+			"success_url": success_url,
+			"details": ['User', 'Project'],
+			"error": ""
+		})
+
+		resp_html = frappe.render_template("mnt_oauth/templates/includes/mnt_oauth_confirmation.html", response_html_params)
 
 		frappe.respond_as_web_page("MNT OAuth Conf.", resp_html)
-		
+
 		# for x in xrange(0, 5):
 		# 	print scopes, credentials
 		
@@ -70,18 +83,48 @@ def mnt_authorize(*args, **kwargs):
 		# his default scopes (omitted from request), after which you will
 		# redirect to his default redirect uri (omitted from request).
 
-
 	except FatalClientError as e:
-		# this is your custom error page
-		# from your_view_helpers import error_to_response
-		# return error_to_response(e)
+		# response_html_params['error'] = e.message
+		# frappe.respond_as_web_page("MNT OAuth Conf Error", resp_html)
+		# # this is your custom error page
+		# # from your_view_helpers import error_to_response
+		# # return error_to_response(e)
+		# return False
 		return e
 		
+@frappe.whitelist(allow_guest=True)
+def mnt_post_authorize(*args, **kwargs):
 
+	# # Fetch the credentials saved in the pre authorization phase
+	# from your_datastore import fetch_credentials
+	# credentials = fetch_credentials()
+	global credentials
 
-# [u'0.0.0.0:8000/api/method'] 
-# {u'state': None, u'redirect_uri': u'https://www.google.com', u'request': 
-# <oauthlib.Request url="http://0.0.0.0:8000/api/method/mnt_oauth.api_oauth.mnt_authorize?client_id=abc&redirect_uri=https:%2F%2Fwww.google.com&response_type=code", 
-# http_method="GET", 
-# headers="{u'Content-Length': u'', u'Accept-Language': u'en-US,en;q=0.8', u'Accept-Encoding': u'gzip, deflate, sdch', u'Connection': u'keep-alive', u'Accept': u'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8', u'User-Agent': u'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.82 Safari/537.36', 
-# u'Host': u'0.0.0.0:8000', u'Cookie': u'_ga=GA1.1.1971573397.1470386439; user_image=; user_id=Administrator; system_user=yes; full_name=Administrator; sid=7b99b8ce99bc027f6359bb8db4362c9b75418b03e29b49bbee384f23', u'Pragma': u'no-cache', u'Cache-Control': u'no-cache', u'Upgrade-Insecure-Requests': u'1', u'Content-Type': u''}", body="None">, u'response_type': u'code', u'client_id': u'abc'}
+	# Fetch authorized scopes from the request
+	#from your_framework import request
+	scopes = request.POST.get('scopes')
+
+	from oauthlib.oauth2 import OAuth2Error
+
+	from your_framework import http_response
+	http_response(body, status=status, headers=headers)
+	
+	try:
+	    headers, body, status = server.create_authorization_response(
+	        uri, http_method, body, headers, scopes, credentials)
+	    # headers = {'Location': 'https://foo.com/welcome_back?code=somerandomstring&state=xyz'}, this might change to include suggested headers related
+	    # to cache best practices etc.
+	    # body = '', this might be set in future custom grant types
+	    # status = 302, suggested HTTP status code
+
+	    return http_response(body, status=status, headers=headers)
+
+	except FatalClientError as e:
+	    # this is your custom error page
+	    from your_view_helpers import error_to_response
+	    return error_to_response(e)
+
+	except OAuth2Error as e:
+	    # Less grave errors will be reported back to client
+	    client_redirect_uri = credentials.get('redirect_uri')
+	    redirect(e.in_uri(client_redirect_uri))
