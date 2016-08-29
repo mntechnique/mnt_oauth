@@ -1,7 +1,9 @@
 import frappe
 from frappe import database
 from oauthlib.oauth2 import RequestValidator
+from oauthlib.common import Request
 from mnt_oauth.doctype.oauth_client.oauth_client import OAuthClient
+
 
 #https://github.com/idan/oauthlib/blob/master/examples/skeleton_oauth2_web_application_server.py
 
@@ -20,24 +22,32 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 			return True
 		else:
 			return False
+		#return True
 
 	def validate_redirect_uri(self, client_id, redirect_uri, request, *args, **kwargs):
-		if validate_client_id(client_id):
-			redirect_uris = [] 
-			redirect_uris = list(frappe.db.get_value("OAuth Client", client_id, 'redirect_uris'))
+		#if self.validate_client_id(client_id):
 
-			if redirect_uri in redirect_uris:
-				return True
-			else:
-				return False
+		r_uri = frappe.db.get_value("OAuth Client", client_id, 'redirect_uris')
+		if redirect_uri == r_uri:
+			return True
+		else:
+			return False
+
+		# redirect_uris = [] 
+		# redirect_uris.append()
+
+		# if redirect_uri in redirect_uris:
+		# 	return True
+		# else:
+		# 	return False
 		# Is the client allowed to use the supplied redirect_uri? i.e. has
 		# the client previously registered this EXACT redirect uri.
 		#pass
 
 	def get_default_redirect_uri(self, client_id, request, *args, **kwargs):
 		#No such field exists.
-		if validate_client_id(client_id):
-			redirect_uri = frappe.db.get_value("OAuth Client", client_id, 'default_redirect_uri')
+		#if self.validate_client_id(client_id):
+		redirect_uri = frappe.db.get_value("OAuth Client", client_id, 'default_redirect_uri')
 
 		# The redirect used if none has been supplied.
 		# Prefer your clients to pre register a redirect uri rather than
@@ -47,40 +57,47 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 	def validate_scopes(self, client_id, scopes, client, request, *args, **kwargs):
 		# if validate_client_id(client_id):
 		# 	client_scopes = []
-		# 	client_scopes = list(frappe.db.get_value("OAuth Client", client_id, 'scopes'))
+		client_scopes = [frappe.db.get_value("OAuth Client", client_id, 'scopes')]
 
+		for scp in client_scopes:
+			if scp in scopes:
+				return True
 		# 	for scp in client_scopes :
 		# 		if scp in scopes:
 
-
-
 		# Is the client allowed to access the requested scopes?
-		pass
+		
+
 
 	def get_default_scopes(self, client_id, request, *args, **kwargs):
 		# Scopes a client will authorize for if none are supplied in the
 		# authorization request.
-		pass
+		#pass
+		return [frappe.db.get_value("OAuth Client", client_id, 'scopes')]
 
 	def validate_response_type(self, client_id, response_type, client, request, *args, **kwargs):
 		# Clients should only be allowed to use one type of response type, the
 		# one associated with their one allowed grant type.
 		# In this case it must be "code".
 		
-		#response_type_in_request  = request['response_type']
-
-		#Get Grant Type from Client's Authorization
-
-
-		pass
-
+		resp_type_client = frappe.db.get_value("OAuth Client", client_id, 'response_type')
+		return (resp_type_client == response_type)
 	# Post-authorization
 
 	def save_authorization_code(self, client_id, code, request, *args, **kwargs):
+		# oac = frappe.new_doc('OAuth Authorization Code')
+		# oac.scopes = request.get()
+		# oac.client = client_id
+		# oac.authorization_code = code
+		# oac.save()
+		# frappe.db.commit()
+
+
+		print request
 		# Remember to associate it with request.scopes, request.redirect_uri
 		# request.client, request.state and request.user (the last is passed in
 		# post_authorization credentials, i.e. { 'user': request.user}.
-		pass
+		#pass
 
 	# Token request
 

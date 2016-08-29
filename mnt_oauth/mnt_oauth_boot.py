@@ -7,10 +7,14 @@ import frappe
 from mnt_oauth_request_validator import RequestValidator
 from oauthlib.oauth2 import WebApplicationServer 
 
+
+#oauth_server = None
+
 def boot_session(bootinfo):
 	"""boot session - send website info if guest"""
-	import frappe
+	 
 
-	if frappe.session['user']!='Guest': #Allow guests?
-		oauth_validator =  RequestValidator()
-		oauth_server = WebApplicationServer(oauth_validator)
+	# if frappe.session['user']!='Guest': #Allow guests?
+	# 	oauth_validator =  RequestValidator()
+	# 	global oauth_server
+	# 	oauth_server  = WebApplicationServer(oauth_validator)
