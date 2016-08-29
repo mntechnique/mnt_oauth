@@ -79,21 +79,22 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		# Clients should only be allowed to use one type of response type, the
 		# one associated with their one allowed grant type.
 		# In this case it must be "code".
-		
 		resp_type_client = frappe.db.get_value("OAuth Client", client_id, 'response_type')
 		return (resp_type_client == response_type)
 	# Post-authorization
 
 	def save_authorization_code(self, client_id, code, request, *args, **kwargs):
 		# oac = frappe.new_doc('OAuth Authorization Code')
-		# oac.scopes = request.get()
+		# oac.scopes = request.scopes
 		# oac.client = client_id
 		# oac.authorization_code = code
-		# oac.save()
+		# oac.insert()
 		# frappe.db.commit()
 
+		for x in xrange(0, 25):
+			print '~~~Save Auth Code~~~'
+		#print request
 
-		print request
 		# Remember to associate it with request.scopes, request.redirect_uri
 		# request.client, request.state and request.user (the last is passed in
 		# post_authorization credentials, i.e. { 'user': request.user}.
@@ -103,7 +104,9 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 
 	def authenticate_client(self, request, *args, **kwargs):
 		# Whichever authentication method suits you, HTTP Basic might work
-		pass
+		#pass
+		for x in xrange(0, 25):
+			print '/// Authenticate CLient ///'
 
 	def authenticate_client_id(self, client_id, request, *args, **kwargs):
 		cli_id = frappe.db.get_value('OAuth Client', client_id, 'name')
@@ -120,13 +123,16 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		pass
 
 	def confirm_redirect_uri(self, client_id, code, redirect_uri, client, *args, **kwargs):
+		saved_redirect_uri = frappe.db.get_value('OAuth Client', client_id, 'default_redirect_uri')
+		return saved_redirect_uri == redirect_uri
 		# You did save the redirect uri with the authorization code right?
-		pass
-
+		
 	def validate_grant_type(self, client_id, grant_type, client, request, *args, **kwargs):
 		# Clients should only be allowed to use one type of grant.
 		# In this case, it must be "authorization_code" or "refresh_token"
-		pass
+		for x in xrange(0, 25):
+			print '/// Validate Grant Type ///'
+
 
 	def save_bearer_token(self, token, request, *args, **kwargs):
 		# Remember to associate it with request.scopes, request.user and
@@ -134,18 +140,24 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		# the authorization code. Don't forget to save both the
 		# access_token and the refresh_token and set expiration for the
 		# access_token to now + expires_in seconds.
-		pass
+		#pass
+		for x in xrange(0, 25):
+			print '/// Save Bearer Token ///'
 
 	def invalidate_authorization_code(self, client_id, code, request, *args, **kwargs):
 		# Authorization codes are use once, invalidate it when a Bearer token
 		# has been acquired.
-		pass
+		#pass
+		for x in xrange(0, 25):
+			print '/// Invalidate Authorization Code ///'
 
 	# Protected resource request
 
 	def validate_bearer_token(self, token, scopes, request):
 		# Remember to check expiration and scope membership
-		pass
+		#pass
+		for x in xrange(0, 25):
+			print '/// Validate Bearer Token ///'
 
 	# Token refresh request
 
@@ -154,7 +166,9 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		# return its scopes, these will be passed on to the refreshed
 		# access token if the client did not specify a scope during the
 		# request.
-		pass
+		#pass
+		for x in xrange(0, 25):
+			print '/// Get Original Scopes ///'
 
 
 
