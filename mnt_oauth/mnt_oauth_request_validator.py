@@ -65,7 +65,11 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		#resp_type_client = frappe.db.get_value("OAuth Client", client_id, 'response_type')
 		#print resp_type_client
 		#return (resp_type_client.lower() == response_type)
-		print client.response_type #Checking
+
+
+
+
+		#print client.response_type #Checking
 		return (client.response_type.lower() == response_type)
 
 
@@ -123,9 +127,6 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		# the authorization code. Don't forget to save both the
 		# access_token and the refresh_token and set expiration for the
 		# access_token to now + expires_in seconds.
-		# #pass
-		# for x in xrange(0, 25):
-		# 	print '/// Save Bearer Token ///'
 		otoken = frappe.new_doc("OAuth Bearer Token")
 		otoken.client = request.client
 		otoken.user = request.user
