@@ -5,8 +5,7 @@ from __future__ import unicode_literals
 import frappe
 from mnt_oauth_request_validator import MNTOAuthWebRequestValidator
 from oauthlib.oauth2 import WebApplicationServer, FatalClientError
-from werkzeug.utils import redirect
-#import requests
+from urllib import quote
 
 
 #Variables required across requests.
@@ -15,34 +14,28 @@ oauth_server  = WebApplicationServer(oauth_validator)
 credentials = None
 
 
-@frappe.whitelist(allow_guest=True)
-def redir2redir():
-	import urllib
+# @frappe.whitelist(allow_guest=True)
+# def redir2redir():
+# 	import urllib
 
 
-	frappe.local.response["type"] = "redirect"
-	frappe.local.response["location"] = "/redir"
-	# the #desktop is added to prevent a facebook redirect bug
+# 	frappe.local.response["type"] = "redirect"
+# 	frappe.local.response["location"] = "/redir"
+# 	# the #desktop is added to prevent a facebook redirect bug
 
 
-	#urllib.urlopen("https://www.google.com")
-	# resp = redirect("https://www.google.com")
-	# frappe.respond_as_web_page("", resp.data)
-	#return resp.data
+# 	#urllib.urlopen("https://www.google.com")
+# 	# resp = redirect("https://www.google.com")
+# 	# frappe.respond_as_web_page("", resp.data)
+# 	#return resp.data
 
 #preauth.
 @frappe.whitelist(allow_guest=True)
 def mnt_preauth(*args, **kwargs):
-
-	import urllib
-	from urllib import quote
-	# for i in frappe.local.request:
-	# 	print i
-	#return frappe.get_request_header("")
 	if frappe.session['user']=='Guest':
+		#Force login, redirect to preauth again.
 		frappe.local.response["type"] = "redirect"
-		frappe.local.response["location"] = "/login?redirect-to=" + quote("/api/method/mnt_oauth.api_oauth.mnt_postauth?client_id=abc&randomtoken=8da0877ea84e1d1fcca76fe8cf009558c58066b1ae52d44f09870ad2&scope=method")
-		#http://0.0.0.0:8000/api/method/mnt_oauth.api_oauth.mnt_postauth?client_id=abc&randomtoken=8da0877ea84e1d1fcca76fe8cf009558c58066b1ae52d44f09870ad2&scope=method
+		frappe.local.response["location"] = "/login?redirect-to=" + quote("/api/method/mnt_oauth.api_oauth.mnt_postauth?client_id={cliid}&scope={scope}".format(cliid=credentials['client_id'], scope=kwargs['scope']))
 
 		# login_prompt_html = "<h3>Login to ERPNext first.</h3><br><a class='btn btn-md btn-primary' href='/login'>Login</a>"
 		# frappe.respond_as_web_page("Login", login_prompt_html)
@@ -125,14 +118,15 @@ def mnt_postauth(*args, **kwargs):
 	#from your_framework import request
 
 	#{'scope': u'method', 'cmd': u'mnt_oauth.api_oauth.mnt_postauth', 'data': '', 'client_id': u'abc', 'auth_code': u'96d61a59cfee66745b438b467f4e43385c4634441117148e1de8191e'}
-	for x in xrange(0, 20):
-		print kwargs
+	# 	print kwargs
 
-	#scopes = kwargs['scope'] #request.scopes #POST.get('scopes')
+	scopes = kwargs['scope'].split(" ") #request.scopes #POST.get('scopes')
+	# for s in scopes:
+	# 	print s
 
 	from oauthlib.oauth2 import OAuth2Error
 
-	from your_framework import http_response
+	#from your_framework import http_response
 	http_response(body, status=status, headers=headers)
 	
 	try:
