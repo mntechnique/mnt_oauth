@@ -67,7 +67,7 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		#return (resp_type_client.lower() == response_type)
 
 
-
+		
 
 		#print client.response_type #Checking
 		return (client.response_type.lower() == response_type)
@@ -77,11 +77,11 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 
 	def save_authorization_code(self, client_id, code, request, *args, **kwargs):
 		oac = frappe.new_doc('OAuth Authorization Code')
-		oac.scopes = request.scopes
+		oac.scopes = ';'.join(request.scopes)
 		oac.redirect_uri_bound_to_authorization_code = request.redirect_uri
 		oac.client = client_id
-		oac.authorization_code = code
-		oac.insert()
+		oac.authorization_code = code['code']
+		oac.save()
 		frappe.db.commit()
 
 		#redirect_uri gets linked to OAC Auth Code via Client link field.
