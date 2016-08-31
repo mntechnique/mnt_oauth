@@ -156,13 +156,13 @@ def mnt_postauth(*args, **kwargs):
 	    # to cache best practices etc.
 	    # body = '', this might be set in future custom grant types
 	    # status = 302, suggested HTTP status code
-	    return frappe._dict({
-	    	"headers": headers,
-	    	"body": body,
-	    	"status": status
-	    	})
+	    # return frappe._dict({
+	    # 	"headers": headers,
+	    # 	"body": body,
+	    # 	"status": status
+	    # 	})
+	    return headers, body, status
 
-	   
 	except FatalClientError as e:
 	    # this is your custom error page
 	    return frappe.respond_as_web_page("Not Allowed", "Access Denied to " + kwargs["client_id"])
@@ -171,3 +171,18 @@ def mnt_postauth(*args, **kwargs):
 	    # Less grave errors will be reported back to client
 	    client_redirect_uri = credentials.get('redirect_uri')
 	    redirect(e.in_uri(client_redirect_uri))
+
+#http://0.0.0.0:8000/api/method/mnt_oauth.api_oauth.mnt_providetoken?client_id=abc&client_secret=123456&grant_type=authorization_code&code=wbRjzg8BP0jtdU0JIkUjPvDpOWXKzz&redirect_uri=http://0.0.0.0:8000/redir.html
+@frappe.whitelist(allow_guest=True)
+def mnt_providetoken(*args, **kwargs):
+	r = frappe.request
+	uri = r.url
+	http_method = r.method
+	body = r.get_data()
+	headers = r.headers
+
+	try:
+		headers, body, status = oauth_server.create_token_response(uri, http_method, body, headers, credentials)
+		return headers, body, status
+	except FatalClientError as e:
+		return e

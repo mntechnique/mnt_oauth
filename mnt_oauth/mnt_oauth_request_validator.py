@@ -4,22 +4,43 @@ from oauthlib.oauth2 import RequestValidator
 from oauthlib.common import Request
 from mnt_oauth.doctype.oauth_client.oauth_client import OAuthClient
 
+from urlparse import parse_qs, urlparse
+
 
 #https://github.com/idan/oauthlib/blob/master/examples/skeleton_oauth2_web_application_server.py
 
 
 class MNTOAuthWebRequestValidator(RequestValidator):
 
+	# def _load_application(self, client_id, request):
+	# 	"""
+	# 	If request.client was not set, load application instance for given client_id and store it
+	# 	in request.client
+	# 	"""
+
+	# 	# we want to be sure that request has the client attribute!
+	# 	assert hasattr(request, "client"), "'request' instance has no 'client' attribute"
+
+	# 	oc = frappe.get_doc("OAuth Client", client_id)
+		
+	# 	try:
+	# 		request.client = request.client or oc.as_dict() #Application.objects.get(client_id=client_id)
+	# 		return request.client
+	# 	except Exception, e:
+	# 		print ("Failed body authentication: Application %s does not exist" % client_id)
+	# 		return None
+
 	# Ordered roughly in order of appearance in the authorization grant flow
 
 	# Pre- and post-authorization.
+
 
 	def validate_client_id(self, client_id, request, *args, **kwargs):
 		# Simple validity check, does client exist? Not banned?
 		cli_id = frappe.db.get_value("OAuth Client",{ "name":client_id })
 		if cli_id:
 		#  Client.objects.get(client_id=client_id)
-			request.client = frappe.get_doc("OAuth Client", client_id)
+			request.client = frappe.get_doc("OAuth Client", client_id).as_dict()
 			return True
 		else:
 			return False
@@ -92,10 +113,49 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		#pass
 
 	# Token request
+	
+	# Added later
+	def client_authentication_required(self, request, *args, **kwargs):
+		assert hasattr(request, "client"), "'request' instance has no 'client' attribute"
+
+		oc = frappe.get_doc("OAuth Client", request.client_id)
+		
+		try:
+			request.client = request.client or oc.as_dict() #Application.objects.get(client_id=client_id)
+			return request.client
+		except Exception, e:
+			print ("Failed body authentication: Application %s does not exist" % client_id)
+			return None
+
+		return True
 
 	def authenticate_client(self, request, *args, **kwargs):
 		# Whichever authentication method suits you, HTTP Basic might work
-		return False #GRN: Authentication outside OAuth2. Disabled for MNT.
+		#return True #GRN: Authentication outside OAuth2. Disabled for MNT.
+		#
+		#return self.authenticate_cltient_id(kwargs['client_id'], request, args, kwargs)
+		
+		s = request.headers.get('Cookie')
+		s = s.split("; ")
+		d = {k:v for k,v in (x.split('=') for x in s)}
+
+		# for x in xrange(1,10):
+		# 	print d
+			#s.split("; ") #dict(token.split('=') for token in shlex.split(s))
+
+			# cookie = Cookie.SimpleCookie()
+			# cookie.load()
+			# print cookie['user_id'].value
+
+		return frappe.session.user == d['user_id']
+		#TODO : Possible Additional validations
+		#1. Check if client is valid. (Redundant?)
+		#2. Check if session is active.
+		
+		# querystring = parse_qs(urlparse(request.url).query)
+		# is_client_valid = not frappe.db.get_value("OAuth Client", querystring['client_id'], "name")
+
+		#return is_user_valid and is_client_valid		
 
 	def authenticate_client_id(self, client_id, request, *args, **kwargs):
 		cli_id = frappe.db.get_value('OAuth Client', client_id, 'name')
@@ -104,18 +164,31 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 			# Don't allow public (non-authenticated) clients
 			return False
 		else:
+			request["client"] = frappe.get_doc("OAuth Client", cli_id)
 			return True
 
 	def validate_code(self, client_id, code, client, request, *args, **kwargs):
 		# Validate the code belongs to the client. Add associated scopes,
 		# state and user to request.scopes and request.user.
-		return (client.authorization_code == code)
+
+		oacode = frappe.db.get_value("OAuth Authorization Code", filters={"client": client_id, "validity": "Valid"}, fieldname='authorization_code')
+
+		request.scopes = frappe.db.get_value("OAuth Client", client_id, 'scopes').split(';')
+		request.user = frappe.db.get_value("OAuth Client", client_id, 'user')
+		
+		return (oacode == code)
 	
 	def confirm_redirect_uri(self, client_id, code, redirect_uri, client, *args, **kwargs):
 		saved_redirect_uri = frappe.db.get_value('OAuth Client', client_id, 'default_redirect_uri')
+		
+		for x in xrange(1,10):
+			print saved_redirect_uri
+			print redirect_uri
+
 		return saved_redirect_uri == redirect_uri
 		# You did save the redirect uri with the authorization code right?
 		
+
 	def validate_grant_type(self, client_id, grant_type, client, request, *args, **kwargs):
 		# Clients should only be allowed to use one type of grant.
 		# In this case, it must be "authorization_code" or "refresh_token"
@@ -127,17 +200,28 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		# the authorization code. Don't forget to save both the
 		# access_token and the refresh_token and set expiration for the
 		# access_token to now + expires_in seconds.
+			
+		for x in xrange(1,25):
+			print "---"
+			print type(request.client['name'])
+			print request.scopes
+			print ";".join(request.scopes)
+			print token['access_token']
+			print request.user
+			print "---"
+
 		otoken = frappe.new_doc("OAuth Bearer Token")
-		otoken.client = request.client
+		otoken.client = request.client['name']
 		otoken.user = request.user
-		otoken.scopes = request.scopes
-		otoken.access_token = token
-		otoken.refresh_token = frappe.generate_hash(token) #Aisehi.
-		otoken.insert()
+		otoken.scopes = ";".join(request.scopes)
+		otoken.access_token = token['access_token']
+		otoken.refresh_token = token['refresh_token']
+		otoken.expires_in = token['expires_in']
+		otoken.save()
 		frappe.db.commit()
 
-		oclient = frappe.get_doc('OAuth Client', request.client)
-		return oclient.default_redirect_uri
+		ruri = frappe.db.get_value("OAuth Client", request.client['name'], "default_redirect_uri")
+		return ruri
 
 	def invalidate_authorization_code(self, client_id, code, request, *args, **kwargs):
 		# Authorization codes are use once, invalidate it when a Bearer token
