@@ -9,6 +9,8 @@ from urlparse import parse_qs, urlparse
 
 #https://github.com/idan/oauthlib/blob/master/examples/skeleton_oauth2_web_application_server.py
 
+#POSTAUTH REQUEST
+#http://0.0.0.0:8000/api/method/mnt_oauth.api_oauth.mnt_providetoken?client_id=abc&client_secret=123456&grant_type=authorization_code&code=wbRjzg8BP0jtdU0JIkUjPvDpOWXKzz&redirect_uri=http://0.0.0.0:8000/redir.html
 
 class MNTOAuthWebRequestValidator(RequestValidator):
 
@@ -201,15 +203,6 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		# access_token and the refresh_token and set expiration for the
 		# access_token to now + expires_in seconds.
 			
-		for x in xrange(1,25):
-			print "---"
-			print type(request.client['name'])
-			print request.scopes
-			print ";".join(request.scopes)
-			print token['access_token']
-			print request.user
-			print "---"
-
 		otoken = frappe.new_doc("OAuth Bearer Token")
 		otoken.client = request.client['name']
 		otoken.user = request.user
@@ -220,14 +213,14 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		otoken.save()
 		frappe.db.commit()
 
-		ruri = frappe.db.get_value("OAuth Client", request.client['name'], "default_redirect_uri")
-		return ruri
+		default_redirect_uri = frappe.db.get_value("OAuth Client", request.client['name'], "default_redirect_uri")
+		return default_redirect_uri
 
 	def invalidate_authorization_code(self, client_id, code, request, *args, **kwargs):
 		# Authorization codes are use once, invalidate it when a Bearer token
 		# has been acquired.
 		if request.token:
-			ocode = frappe.get_doc("OAuth Authorization Code", client_id) 
+			ocode = frappe.db.get_value("OAuth Authorization Code", {}) 
 			ocode.expiration = frappe.utils.datetime.datetime.now()
 
 		#Hopefully this should do it.
@@ -235,16 +228,29 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 	# Protected resource request
 
 	def validate_bearer_token(self, token, scopes, request):
+
+			
+
 		# Remember to check expiration and scope membership
-		otoken = frappe.get_doc("OAuth Bearer Token", token)
-		if frappe.utils.datetime.datetime.now() > otoken.expiration:
-			return False
-		
+		otoken = frappe.get_doc("OAuth Bearer Token", {"access_token": str(token)})
+		dexp = otoken.creation + frappe.utils.datetime.timedelta(seconds=otoken.expires_in)
+		client_scopes = frappe.db.get_value("OAuth Client", otoken.client, 'scopes').split(';')
+
+		is_token_valid = frappe.utils.datetime.datetime.now() < dexp
+
 		are_scopes_valid = True
 		for scp in scopes:
 			are_scopes_valid = are_scopes_valid and True if scp in client_scopes else False
 
-		return False
+		
+		# for x in xrange(1,25):
+		# 	print dexp
+		# 	print frappe.utils.datetime.datetime.now()
+		# 	print otoken.access_token + ": " + token
+		# 	print "scopes: " + str(are_scopes_valid)
+		# 	print "tokentimevalid: " + str(is_token_valid)
+
+		return is_token_valid and are_scopes_valid
 
 
 	# Token refresh request
@@ -255,8 +261,5 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		# access token if the client did not specify a scope during the
 		# request.
 		obearer_token = frappe.get_doc("OAuth Bearer Token", {"refresh_token": refresh_token})
-		return obearer_token.scopes 	
-
-
-# validator = MNTOAuthWebRequestValidator()
-# server = WebApplicationServer(validator)
+		return obearer_token.scopes
+		

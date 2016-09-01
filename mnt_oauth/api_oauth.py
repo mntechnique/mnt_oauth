@@ -174,7 +174,7 @@ def mnt_postauth(*args, **kwargs):
 
 #http://0.0.0.0:8000/api/method/mnt_oauth.api_oauth.mnt_providetoken?client_id=abc&client_secret=123456&grant_type=authorization_code&code=wbRjzg8BP0jtdU0JIkUjPvDpOWXKzz&redirect_uri=http://0.0.0.0:8000/redir.html
 @frappe.whitelist(allow_guest=True)
-def mnt_providetoken(*args, **kwargs):
+def mnt_gettoken(*args, **kwargs):
 	r = frappe.request
 	uri = r.url
 	http_method = r.method
@@ -186,3 +186,30 @@ def mnt_providetoken(*args, **kwargs):
 		return headers, body, status
 	except FatalClientError as e:
 		return e
+
+@frappe.whitelist(allow_guest=True, xss_safe=True)
+def mnt_getprojectlist(*args, **kwargs):
+	
+	for x in xrange(1,25):
+		print "---"
+		print kwargs
+		print kwargs["access_token"]
+		print "---"
+
+	r = frappe.request
+	uri = r.url
+	http_method = r.method
+	body = r.get_data()
+	headers = r.headers
+
+	required_scopes = frappe.db.get_value("OAuth Bearer Token", filters={"access_token": kwargs["access_token"]}, fieldname="scopes").split(";") #request.scopes #POST.get('scopes')
+
+	try:	
+		valid, oauthlib_request = oauth_server.verify_request(uri, http_method, body, headers, required_scopes)
+	except FatalClientError as e:
+		return e
+	else:
+		if valid:
+			return "You may pass."
+		else:
+			return "403: Nope."
