@@ -219,32 +219,28 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 	def invalidate_authorization_code(self, client_id, code, request, *args, **kwargs):
 		# Authorization codes are use once, invalidate it when a Bearer token
 		# has been acquired.
-		if request.token:
-			ocode = frappe.db.get_value("OAuth Authorization Code", {}) 
-			ocode.expiration = frappe.utils.datetime.datetime.now()
 
-		#Hopefully this should do it.
+		frappe.db.set_value("OAuth Authorization Code", code, "validity", "Invalid")
+		frappe.db.commit()
+	
+		
 
 	# Protected resource request
 
 	def validate_bearer_token(self, token, scopes, request):
 
-			
-
 		# Remember to check expiration and scope membership
 		otoken = frappe.get_doc("OAuth Bearer Token", {"access_token": str(token)})
-		dexp = otoken.creation + frappe.utils.datetime.timedelta(seconds=otoken.expires_in)
+		#dexp = otoken.creation + frappe.utils.datetime.timedelta(seconds=otoken.expires_in)
+		is_token_valid = frappe.utils.datetime.datetime.now() < otoken.expiration_time
+
 		client_scopes = frappe.db.get_value("OAuth Client", otoken.client, 'scopes').split(';')
-
-		is_token_valid = frappe.utils.datetime.datetime.now() < dexp
-
 		are_scopes_valid = True
 		for scp in scopes:
 			are_scopes_valid = are_scopes_valid and True if scp in client_scopes else False
 
-		
 		# for x in xrange(1,25):
-		# 	print dexp
+		# 	print otoken.expiration_time
 		# 	print frappe.utils.datetime.datetime.now()
 		# 	print otoken.access_token + ": " + token
 		# 	print "scopes: " + str(are_scopes_valid)
@@ -263,3 +259,91 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		obearer_token = frappe.get_doc("OAuth Bearer Token", {"refresh_token": refresh_token})
 		return obearer_token.scopes
 		
+
+
+	#Additional
+
+	def is_within_original_scope(self, request_scopes, refresh_token, request, *args, **kwargs):
+		"""Check if requested scopes are within a scope of the refresh token.
+
+		When access tokens are refreshed the scope of the new token
+		needs to be within the scope of the original token. This is
+		ensured by checking that all requested scopes strings are on
+		the list returned by the get_original_scopes. If this check
+		fails, is_within_original_scope is called. The method can be
+		used in situations where returning all valid scopes from the
+		get_original_scopes is not practical.
+
+		:param request_scopes: A list of scopes that were requested by client
+		:param refresh_token: Unicode refresh_token
+		:param request: The HTTP Request (oauthlib.common.Request)
+		:rtype: True or False
+
+		Method is used by:
+			- Refresh token grant
+		"""
+		return False
+
+	def revoke_token(self, token, token_type_hint, request, *args, **kwargs):
+		"""Revoke an access or refresh token.
+
+		:param token: The token string.
+		:param token_type_hint: access_token or refresh_token.
+		:param request: The HTTP Request (oauthlib.common.Request)
+
+		Method is used by:
+			- Revocation Endpoint
+		"""
+		raise NotImplementedError('Subclasses must implement this method.')
+
+	def rotate_refresh_token(self, request):
+		"""Determine whether to rotate the refresh token. Default, yes.
+
+		When access tokens are refreshed the old refresh token can be kept
+		or replaced with a new one (rotated). Return True to rotate and
+		and False for keeping original.
+
+		:param request: oauthlib.common.Request
+		:rtype: True or False
+
+		Method is used by:
+			- Refresh Token Grant
+		"""
+		return True
+
+	def validate_refresh_token(self, refresh_token, client, request, *args, **kwargs):
+			"""Ensure the Bearer token is valid and authorized access to scopes.
+
+			OBS! The request.user attribute should be set to the resource owner
+			associated with this refresh token.
+
+			:param refresh_token: Unicode refresh token
+			:param client: Client object set by you, see authenticate_client.
+			:param request: The HTTP Request (oauthlib.common.Request)
+			:rtype: True or False
+
+			Method is used by:
+				- Authorization Code Grant (indirectly by issuing refresh tokens)
+				- Resource Owner Password Credentials Grant (also indirectly)
+				- Refresh Token Grant
+			"""
+			raise NotImplementedError('Subclasses must implement this method.')
+
+	def validate_user(self, username, password, client, request, *args, **kwargs):
+		"""Ensure the username and password is valid.
+
+		OBS! The validation should also set the user attribute of the request
+		to a valid resource owner, i.e. request.user = username or similar. If
+		not set you will be unable to associate a token with a user in the
+		persistance method used (commonly, save_bearer_token).
+
+		:param username: Unicode username
+		:param password: Unicode password
+		:param client: Client object set by you, see authenticate_client.
+		:param request: The HTTP Request (oauthlib.common.Request)
+		:rtype: True or False
+
+		Method is used by:
+			- Resource Owner Password Credentials Grant
+		"""
+		raise NotImplementedError('Subclasses must implement this method.')
