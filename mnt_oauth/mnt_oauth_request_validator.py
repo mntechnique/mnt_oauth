@@ -117,29 +117,52 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 	# Token request
 	
 	# Added later
-	def client_authentication_required(self, request, *args, **kwargs):
-		assert hasattr(request, "client"), "'request' instance has no 'client' attribute"
+	# def client_authentication_required(self, request, *args, **kwargs):
+	# 	assert hasattr(request, "client"), "'request' instance has no 'client' attribute"
 
-		oc = frappe.get_doc("OAuth Client", request.client_id)
+	# 	oc = frappe.get_doc("OAuth Client", request.client_id)
 		
-		try:
-			request.client = request.client or oc.as_dict() #Application.objects.get(client_id=client_id)
-			return request.client
-		except Exception, e:
-			print ("Failed body authentication: Application %s does not exist" % client_id)
-			return None
+	# 	try:
+	# 		request.client = request.client or oc.as_dict() #Application.objects.get(client_id=client_id)
+	# 		return request.client
+	# 	except Exception, e:
+	# 		print ("Failed body authentication: Application %s does not exist" % client_id)
+	# 		return None
 
-		return True
+	# 	return True
 
 	def authenticate_client(self, request, *args, **kwargs):
 		# Whichever authentication method suits you, HTTP Basic might work
 		#return True #GRN: Authentication outside OAuth2. Disabled for MNT.
 		#
 		#return self.authenticate_cltient_id(kwargs['client_id'], request, args, kwargs)
-		
-		s = request.headers.get('Cookie')
-		s = s.split("; ")
-		d = {k:v for k,v in (x.split('=') for x in s)}
+	
+
+		#Get URL from Cookie from Headers
+		cookie = request.headers.get('Cookie')
+		cookie = cookie.split("; ")
+		cookie_dict = {k:v for k,v in (x.split('=') for x in cookie)}
+
+
+		for x in xrange(1,30):
+			print frappe.form_dict
+#			print request.url
+
+		#Set Client in request.
+		#oc = frappe.get_doc("OAuth Client", request.client_id)
+
+		#Get ClientID in URL
+		if request.client_id:
+			oc = frappe.get_doc("OAuth Client", request.client_id) #request.client["name"])
+		else:
+			#Extract token, instantiate OAuth Bearer Token and use clientid from there.
+			#querystring = parse_qs(urlparse(request["url"]).query)
+			oc = frappe.get_doc("OAuth Client", frappe.db.get_value("OAuth Bearer Token", frappe.form_dict["token"], 'client'))	
+		try:
+			request.client = request.client or oc.as_dict()
+		except Exception, e:
+			print "Failed body authentication: Application %s does not exist".format(cid=request.client_id)
+			#return None
 
 		# for x in xrange(1,10):
 		# 	print d
@@ -149,7 +172,7 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 			# cookie.load()
 			# print cookie['user_id'].value
 
-		return frappe.session.user == d['user_id']
+		return frappe.session.user == cookie_dict['user_id']
 		#TODO : Possible Additional validations
 		#1. Check if client is valid. (Redundant?)
 		#2. Check if session is active.
@@ -232,7 +255,9 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		# Remember to check expiration and scope membership
 		otoken = frappe.get_doc("OAuth Bearer Token", {"access_token": str(token)})
 		#dexp = otoken.creation + frappe.utils.datetime.timedelta(seconds=otoken.expires_in)
-		is_token_valid = frappe.utils.datetime.datetime.now() < otoken.expiration_time
+		is_token_valid = (frappe.utils.datetime.datetime.now() < otoken.expiration_time) \
+			and otoken.status != "Revoked"
+		#is_token_valid = is_token_valid and otoken.status == ""
 
 		client_scopes = frappe.db.get_value("OAuth Client", otoken.client, 'scopes').split(';')
 		are_scopes_valid = True
@@ -294,56 +319,78 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		Method is used by:
 			- Revocation Endpoint
 		"""
-		raise NotImplementedError('Subclasses must implement this method.')
+		otoken = None
 
-	def rotate_refresh_token(self, request):
-		"""Determine whether to rotate the refresh token. Default, yes.
+		if token_type_hint == "access_token":
+			otoken = frappe.db.set_value("OAuth Bearer Token", token, 'status', 'Revoked')
+		elif token_type_hint == "refresh_token":
+			otoken = frappe.db.set_value("OAuth Bearer Token", {"refresh_token": token}, 'status', 'Revoked')
+		else:
+			otoken = frappe.db.set_value("OAuth Bearer Token", token, 'status', 'Revoked')
 
-		When access tokens are refreshed the old refresh token can be kept
-		or replaced with a new one (rotated). Return True to rotate and
-		and False for keeping original.
+		frappe.db.commit()
+		#raise NotImplementedError('Subclasses must implement this method.')
 
-		:param request: oauthlib.common.Request
-		:rtype: True or False
+	# def rotate_refresh_token(self, request):
+	# 	"""Determine whether to rotate the refresh token. Default, yes.
 
-		Method is used by:
-			- Refresh Token Grant
-		"""
-		return True
+	# 	When access tokens are refreshed the old refresh token can be kept
+	# 	or replaced with a new one (rotated). Return True to rotate and
+	# 	and False for keeping original.
+
+	# 	:param request: oauthlib.common.Request
+	# 	:rtype: True or False
+
+	# 	Method is used by:
+	# 		- Refresh Token Grant
+	# 	"""
+	# 	return True
 
 	def validate_refresh_token(self, refresh_token, client, request, *args, **kwargs):
-			"""Ensure the Bearer token is valid and authorized access to scopes.
+			# """Ensure the Bearer token is valid and authorized access to scopes.
 
-			OBS! The request.user attribute should be set to the resource owner
-			associated with this refresh token.
+			# OBS! The request.user attribute should be set to the resource owner
+			# associated with this refresh token.
 
-			:param refresh_token: Unicode refresh token
-			:param client: Client object set by you, see authenticate_client.
-			:param request: The HTTP Request (oauthlib.common.Request)
-			:rtype: True or False
+			# :param refresh_token: Unicode refresh token
+			# :param client: Client object set by you, see authenticate_client.
+			# :param request: The HTTP Request (oauthlib.common.Request)
+			# :rtype: True or False
 
-			Method is used by:
-				- Authorization Code Grant (indirectly by issuing refresh tokens)
-				- Resource Owner Password Credentials Grant (also indirectly)
-				- Refresh Token Grant
-			"""
-			raise NotImplementedError('Subclasses must implement this method.')
+			# Method is used by:
+			# 	- Authorization Code Grant (indirectly by issuing refresh tokens)
+			# 	- Resource Owner Password Credentials Grant (also indirectly)
+			# 	- Refresh Token Grant
+			# """
+			# raise NotImplementedError('Subclasses must implement this method.')
+		# for x in xrange(1,20):
+		# 	pass
 
-	def validate_user(self, username, password, client, request, *args, **kwargs):
-		"""Ensure the username and password is valid.
+		otoken = frappe.get_doc("OAuth Bearer Token", {"refresh_token": refresh_token})
 
-		OBS! The validation should also set the user attribute of the request
-		to a valid resource owner, i.e. request.user = username or similar. If
-		not set you will be unable to associate a token with a user in the
-		persistance method used (commonly, save_bearer_token).
+		if not otoken:
+			return False
+		else:
+			return True
 
-		:param username: Unicode username
-		:param password: Unicode password
-		:param client: Client object set by you, see authenticate_client.
-		:param request: The HTTP Request (oauthlib.common.Request)
-		:rtype: True or False
+		#TODO: Validate scopes.
 
-		Method is used by:
-			- Resource Owner Password Credentials Grant
-		"""
-		raise NotImplementedError('Subclasses must implement this method.')
+
+	# def validate_user(self, username, password, client, request, *args, **kwargs):
+	# 	"""Ensure the username and password is valid.
+
+	# 	OBS! The validation should also set the user attribute of the request
+	# 	to a valid resource owner, i.e. request.user = username or similar. If
+	# 	not set you will be unable to associate a token with a user in the
+	# 	persistance method used (commonly, save_bearer_token).
+
+	# 	:param username: Unicode username
+	# 	:param password: Unicode password
+	# 	:param client: Client object set by you, see authenticate_client.
+	# 	:param request: The HTTP Request (oauthlib.common.Request)
+	# 	:rtype: True or False
+
+	# 	Method is used by:
+	# 		- Resource Owner Password Credentials Grant
+	# 	"""
+	# 	raise NotImplementedError('Subclasses must implement this method.')

@@ -190,11 +190,11 @@ def mnt_gettoken(*args, **kwargs):
 @frappe.whitelist(allow_guest=True, xss_safe=True)
 def mnt_getprojectlist(*args, **kwargs):
 	
-	for x in xrange(1,25):
-		print "---"
-		print kwargs
-		print kwargs["access_token"]
-		print "---"
+	# for x in xrange(1,25):
+	# 	print "---"
+	# 	print kwargs
+	# 	print kwargs["access_token"]
+	# 	print "---"
 
 	r = frappe.request
 	uri = r.url
@@ -213,3 +213,16 @@ def mnt_getprojectlist(*args, **kwargs):
 			return "You may pass."
 		else:
 			return "403: Nope."
+
+
+@frappe.whitelist(allow_guest=True, xss_safe=True)
+def mnt_revoketoken(*args, **kwargs):
+	r = frappe.request
+	uri = r.url
+	http_method = r.method
+	body = r.get_data()
+	headers = r.headers
+
+	headers, body, status = oauth_server.create_revocation_response(uri, headers=headers, body=body, http_method=http_method)
+
+	return headers, body, status
