@@ -55,7 +55,7 @@ def mnt_approveauth(*args, **kwargs):
 	except OAuth2Error as e:
 		return 
 
-@frappe.whitelist(allow_guest=True, xss_safe=True)
+@frappe.whitelist(allow_guest=True)
 def mnt_authorize(*args, **kwargs):
 	params = get_urlparams_from_kwargs(kwargs)
 
@@ -93,7 +93,7 @@ def mnt_authorize(*args, **kwargs):
 			# 	frappe.local.response["type"] = "redirect"
 			# 	frappe.local.response["location"] = url
 			# else:
-			success_url = "http://acumen.mntechnique.com/api/method/mnt_oauth.api_oauth.mnt_approveauth?" + params
+			success_url = "http://0.0.0.0:8000/api/method/mnt_oauth.api_oauth.mnt_approveauth?" + params
 			#SHOW ALLOW/DENY SCREEN.
 			response_html_params = frappe._dict({
 				"client_id": kwargs['client_id'],
@@ -109,8 +109,7 @@ def mnt_authorize(*args, **kwargs):
 		except OAuth2Error as e:
 			return
 
-
-@frappe.whitelist(allow_guest=True, xss_safe=True)
+@frappe.whitelist(allow_guest=True)
 def mnt_gettoken(*args, **kwargs):
 	r = frappe.request
 	uri = r.url
@@ -125,7 +124,7 @@ def mnt_gettoken(*args, **kwargs):
 		return e
 
 
-@frappe.whitelist(allow_guest=True, xss_safe=True)
+@frappe.whitelist(allow_guest=True)
 def mnt_revoketoken(*args, **kwargs):
 	r = frappe.request
 	uri = r.url
