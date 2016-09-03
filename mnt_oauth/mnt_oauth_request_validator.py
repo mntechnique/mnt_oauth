@@ -5,12 +5,61 @@ from oauthlib.common import Request
 from mnt_oauth.doctype.oauth_client.oauth_client import OAuthClient
 
 from urlparse import parse_qs, urlparse
+from oauthlib.oauth2.rfc6749.tokens import BearerToken
+from oauthlib.oauth2.rfc6749.grant_types import AuthorizationCodeGrant, ImplicitGrant, ResourceOwnerPasswordCredentialsGrant, ClientCredentialsGrant,  RefreshTokenGrant
 
+from oauthlib.oauth2.rfc6749.endpoints.authorization import AuthorizationEndpoint
+from oauthlib.oauth2.rfc6749.endpoints.token import TokenEndpoint
+from oauthlib.oauth2.rfc6749.endpoints.resource import ResourceEndpoint
+from oauthlib.oauth2.rfc6749.endpoints.revocation import RevocationEndpoint
+
+def printstuff(stuff, times=20):
+	for x in xrange(1,times):
+		print stuff
+	
 
 #https://github.com/idan/oauthlib/blob/master/examples/skeleton_oauth2_web_application_server.py
 
 #POSTAUTH REQUEST
 #http://0.0.0.0:8000/api/method/mnt_oauth.api_oauth.mnt_providetoken?client_id=abc&client_secret=123456&grant_type=authorization_code&code=wbRjzg8BP0jtdU0JIkUjPvDpOWXKzz&redirect_uri=http://0.0.0.0:8000/redir.html
+
+class WebApplicationServer(AuthorizationEndpoint, TokenEndpoint, ResourceEndpoint,
+                           RevocationEndpoint):
+
+    """An all-in-one endpoint featuring Authorization code grant and Bearer tokens."""
+
+    def __init__(self, request_validator, token_generator=None,
+                 token_expires_in=None, refresh_token_generator=None, **kwargs):
+        """Construct a new web application server.
+
+        :param request_validator: An implementation of
+                                  oauthlib.oauth2.RequestValidator.
+        :param token_expires_in: An int or a function to generate a token
+                                 expiration offset (in seconds) given a
+                                 oauthlib.common.Request object.
+        :param token_generator: A function to generate a token from a request.
+        :param refresh_token_generator: A function to generate a token from a
+                                        request for the refresh token.
+        :param kwargs: Extra parameters to pass to authorization-,
+                       token-, resource-, and revocation-endpoint constructors.
+        """
+        auth_grant = AuthorizationCodeGrant(request_validator)
+        refresh_grant = RefreshTokenGrant(request_validator)
+        bearer = BearerToken(request_validator, token_generator,
+                             token_expires_in, refresh_token_generator)
+        AuthorizationEndpoint.__init__(self, default_response_type='code',
+                                       response_types={'code': auth_grant},
+                                       default_token_type=bearer)
+        TokenEndpoint.__init__(self, default_grant_type='authorization_code',
+                               grant_types={
+                                   'authorization_code': auth_grant,
+                                   'refresh_token': refresh_grant,
+                               },
+                               default_token_type=bearer)
+        ResourceEndpoint.__init__(self, default_token='Bearer',
+                                  token_types={'Bearer': bearer})
+        RevocationEndpoint.__init__(self, request_validator)
+
 
 class MNTOAuthWebRequestValidator(RequestValidator):
 
@@ -99,10 +148,14 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 	# Post-authorization
 
 	def save_authorization_code(self, client_id, code, request, *args, **kwargs):
+
+		cookie_dict = get_cookie_dict_from_headers(request)
+
 		oac = frappe.new_doc('OAuth Authorization Code')
 		oac.scopes = ';'.join(request.scopes)
 		oac.redirect_uri_bound_to_authorization_code = request.redirect_uri
 		oac.client = client_id
+		oac.user = cookie_dict['user_id']
 		oac.authorization_code = code['code']
 		oac.save()
 		frappe.db.commit()
@@ -131,6 +184,8 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 
 	# 	return True
 
+	
+
 	def authenticate_client(self, request, *args, **kwargs):
 		# Whichever authentication method suits you, HTTP Basic might work
 		#return True #GRN: Authentication outside OAuth2. Disabled for MNT.
@@ -139,14 +194,11 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 	
 
 		#Get URL from Cookie from Headers
-		cookie = request.headers.get('Cookie')
-		cookie = cookie.split("; ")
-		cookie_dict = {k:v for k,v in (x.split('=') for x in cookie)}
+		# cookie = request.headers.get('Cookie')
+		# cookie = cookie.split("; ")
+		# cookie_dict = {k:v for k,v in (x.split('=') for x in cookie)}
 
-
-		for x in xrange(1,30):
-			print frappe.form_dict
-#			print request.url
+		cookie_dict = get_cookie_dict_from_headers(request)
 
 		#Set Client in request.
 		#oc = frappe.get_doc("OAuth Client", request.client_id)
@@ -185,6 +237,8 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 	def authenticate_client_id(self, client_id, request, *args, **kwargs):
 		cli_id = frappe.db.get_value('OAuth Client', client_id, 'name')
 
+		#printstuff(client_id + ': ' + cli_id)
+
 		if not cli_id:
 			# Don't allow public (non-authenticated) clients
 			return False
@@ -196,19 +250,31 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		# Validate the code belongs to the client. Add associated scopes,
 		# state and user to request.scopes and request.user.
 
-		oacode = frappe.db.get_value("OAuth Authorization Code", filters={"client": client_id, "validity": "Valid"}, fieldname='authorization_code')
+		validcodes = frappe.get_all("OAuth Authorization Code", filters={"client": client_id, "validity": "Valid"})
 
-		request.scopes = frappe.db.get_value("OAuth Client", client_id, 'scopes').split(';')
-		request.user = frappe.db.get_value("OAuth Client", client_id, 'user')
+		checkcodes = []
+		for vcode in validcodes:
+			checkcodes.append(vcode["name"])
+
+		# printstuff(code)
+		# printstuff(validcodes)
+		# printstuff(checkcodes)
+
+		if code in checkcodes:
+			request.scopes = frappe.db.get_value("OAuth Authorization Code", code, 'scopes').split(';')
+			request.user = frappe.db.get_value("OAuth Authorization Code", code, 'user')
+			return True
+		else:
+			return False
 		
-		return (oacode == code)
+		#validcodes = frappe.db.get_all("OAuth Authorization Code", filters={""})
 	
 	def confirm_redirect_uri(self, client_id, code, redirect_uri, client, *args, **kwargs):
 		saved_redirect_uri = frappe.db.get_value('OAuth Client', client_id, 'default_redirect_uri')
 		
-		for x in xrange(1,10):
-			print saved_redirect_uri
-			print redirect_uri
+		# for x in xrange(1,10):
+		# 	print saved_redirect_uri
+		# 	print redirect_uri
 
 		return saved_redirect_uri == redirect_uri
 		# You did save the redirect uri with the authorization code right?
@@ -225,7 +291,8 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		# the authorization code. Don't forget to save both the
 		# access_token and the refresh_token and set expiration for the
 		# access_token to now + expires_in seconds.
-			
+		#		printstuff(request)
+
 		otoken = frappe.new_doc("OAuth Bearer Token")
 		otoken.client = request.client['name']
 		otoken.user = request.user
@@ -245,15 +312,13 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 
 		frappe.db.set_value("OAuth Authorization Code", code, "validity", "Invalid")
 		frappe.db.commit()
-	
-		
 
 	# Protected resource request
 
 	def validate_bearer_token(self, token, scopes, request):
-
+		printstuff(token)
 		# Remember to check expiration and scope membership
-		otoken = frappe.get_doc("OAuth Bearer Token", {"access_token": str(token)})
+		otoken = frappe.get_doc("OAuth Bearer Token", token) #{"access_token": str(token)})
 		#dexp = otoken.creation + frappe.utils.datetime.timedelta(seconds=otoken.expires_in)
 		is_token_valid = (frappe.utils.datetime.datetime.now() < otoken.expiration_time) \
 			and otoken.status != "Revoked"
@@ -288,26 +353,26 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 
 	#Additional
 
-	def is_within_original_scope(self, request_scopes, refresh_token, request, *args, **kwargs):
-		"""Check if requested scopes are within a scope of the refresh token.
+	# def is_within_original_scope(self, request_scopes, refresh_token, request, *args, **kwargs):
+	# 	"""Check if requested scopes are within a scope of the refresh token.
 
-		When access tokens are refreshed the scope of the new token
-		needs to be within the scope of the original token. This is
-		ensured by checking that all requested scopes strings are on
-		the list returned by the get_original_scopes. If this check
-		fails, is_within_original_scope is called. The method can be
-		used in situations where returning all valid scopes from the
-		get_original_scopes is not practical.
+	# 	When access tokens are refreshed the scope of the new token
+	# 	needs to be within the scope of the original token. This is
+	# 	ensured by checking that all requested scopes strings are on
+	# 	the list returned by the get_original_scopes. If this check
+	# 	fails, is_within_original_scope is called. The method can be
+	# 	used in situations where returning all valid scopes from the
+	# 	get_original_scopes is not practical.
 
-		:param request_scopes: A list of scopes that were requested by client
-		:param refresh_token: Unicode refresh_token
-		:param request: The HTTP Request (oauthlib.common.Request)
-		:rtype: True or False
+	# 	:param request_scopes: A list of scopes that were requested by client
+	# 	:param refresh_token: Unicode refresh_token
+	# 	:param request: The HTTP Request (oauthlib.common.Request)
+	# 	:rtype: True or False
 
-		Method is used by:
-			- Refresh token grant
-		"""
-		return False
+	# 	Method is used by:
+	# 		- Refresh token grant
+	# 	"""
+	# 	return False
 
 	def revoke_token(self, token, token_type_hint, request, *args, **kwargs):
 		"""Revoke an access or refresh token.
@@ -366,7 +431,7 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		# for x in xrange(1,20):
 		# 	pass
 
-		otoken = frappe.get_doc("OAuth Bearer Token", {"refresh_token": refresh_token})
+		otoken = frappe.get_doc("OAuth Bearer Token", {"refresh_token": refresh_token, "status": "Active"})
 
 		if not otoken:
 			return False
@@ -394,3 +459,8 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 	# 		- Resource Owner Password Credentials Grant
 	# 	"""
 	# 	raise NotImplementedError('Subclasses must implement this method.')
+def get_cookie_dict_from_headers(r):
+	cookie = r.headers.get('Cookie')
+	cookie = cookie.split("; ")
+	cookie_dict = {k:v for k,v in (x.split('=') for x in cookie)}
+	return cookie_dict
