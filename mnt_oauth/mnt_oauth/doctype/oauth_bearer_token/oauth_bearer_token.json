@@ -8,7 +8,7 @@
  "custom": 0, 
  "docstatus": 0, 
  "doctype": "DocType", 
- "document_type": "", 
+ "document_type": "Document", 
  "editable_grid": 1, 
  "fields": [
   {
@@ -219,7 +219,7 @@
  "issingle": 0, 
  "istable": 0, 
  "max_attachments": 0, 
- "modified": "2016-09-01 20:23:47.831179", 
+ "modified": "2016-09-03 11:43:43.775418", 
  "modified_by": "Administrator", 
  "module": "MNT OAuth", 
  "name": "OAuth Bearer Token", 
@@ -240,14 +240,14 @@
    "print": 1, 
    "read": 1, 
    "report": 1, 
-   "role": "All", 
+   "role": "OAuth Manager", 
    "set_user_permissions": 0, 
    "share": 1, 
    "submit": 0, 
    "write": 1
   }
  ], 
- "quick_entry": 1, 
+ "quick_entry": 0, 
  "read_only": 0, 
  "read_only_onload": 0, 
  "sort_field": "modified", 

@@ -7,4 +7,5 @@ import frappe
 from frappe.model.document import Document
 
 class OAuthClient(Document):
-	pass
+	def validate(self):
+		self.client_id = self.name
