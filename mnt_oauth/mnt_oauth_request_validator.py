@@ -3,6 +3,7 @@ from frappe import database
 from oauthlib.oauth2 import RequestValidator
 from oauthlib.common import Request
 from mnt_oauth.doctype.oauth_client.oauth_client import OAuthClient
+import urllib
 
 from urlparse import parse_qs, urlparse
 from oauthlib.oauth2.rfc6749.tokens import BearerToken
@@ -155,7 +156,7 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		oac.scopes = ';'.join(request.scopes)
 		oac.redirect_uri_bound_to_authorization_code = request.redirect_uri
 		oac.client = client_id
-		oac.user = cookie_dict['user_id']
+		oac.user = urllib.unquote(cookie_dict['user_id'])
 		oac.authorization_code = code['code']
 		oac.save()
 		frappe.db.commit()
