@@ -225,7 +225,7 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 			# cookie.load()
 			# print cookie['user_id'].value
 
-		return frappe.session.user == cookie_dict['user_id']
+		return frappe.session.user == urllib.unquote(cookie_dict['user_id'])
 		#TODO : Possible Additional validations
 		#1. Check if client is valid. (Redundant?)
 		#2. Check if session is active.
