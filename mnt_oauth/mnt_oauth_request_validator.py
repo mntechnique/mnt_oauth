@@ -301,7 +301,7 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		otoken.access_token = token['access_token']
 		otoken.refresh_token = token['refresh_token']
 		otoken.expires_in = token['expires_in']
-		otoken.save()
+		otoken.save(ignore_permissions=True)
 		frappe.db.commit()
 
 		default_redirect_uri = frappe.db.get_value("OAuth Client", request.client['name'], "default_redirect_uri")
