@@ -25,41 +25,41 @@ def printstuff(stuff, times=20):
 #http://0.0.0.0:8000/api/method/mnt_oauth.api_oauth.mnt_providetoken?client_id=abc&client_secret=123456&grant_type=authorization_code&code=wbRjzg8BP0jtdU0JIkUjPvDpOWXKzz&redirect_uri=http://0.0.0.0:8000/redir.html
 
 class WebApplicationServer(AuthorizationEndpoint, TokenEndpoint, ResourceEndpoint,
-                           RevocationEndpoint):
+						   RevocationEndpoint):
 
-    """An all-in-one endpoint featuring Authorization code grant and Bearer tokens."""
+	"""An all-in-one endpoint featuring Authorization code grant and Bearer tokens."""
 
-    def __init__(self, request_validator, token_generator=None,
-                 token_expires_in=None, refresh_token_generator=None, **kwargs):
-        """Construct a new web application server.
+	def __init__(self, request_validator, token_generator=None,
+				 token_expires_in=None, refresh_token_generator=None, **kwargs):
+		"""Construct a new web application server.
 
-        :param request_validator: An implementation of
-                                  oauthlib.oauth2.RequestValidator.
-        :param token_expires_in: An int or a function to generate a token
-                                 expiration offset (in seconds) given a
-                                 oauthlib.common.Request object.
-        :param token_generator: A function to generate a token from a request.
-        :param refresh_token_generator: A function to generate a token from a
-                                        request for the refresh token.
-        :param kwargs: Extra parameters to pass to authorization-,
-                       token-, resource-, and revocation-endpoint constructors.
-        """
-        auth_grant = AuthorizationCodeGrant(request_validator)
-        refresh_grant = RefreshTokenGrant(request_validator)
-        bearer = BearerToken(request_validator, token_generator,
-                             token_expires_in, refresh_token_generator)
-        AuthorizationEndpoint.__init__(self, default_response_type='code',
-                                       response_types={'code': auth_grant},
-                                       default_token_type=bearer)
-        TokenEndpoint.__init__(self, default_grant_type='authorization_code',
-                               grant_types={
-                                   'authorization_code': auth_grant,
-                                   'refresh_token': refresh_grant,
-                               },
-                               default_token_type=bearer)
-        ResourceEndpoint.__init__(self, default_token='Bearer',
-                                  token_types={'Bearer': bearer})
-        RevocationEndpoint.__init__(self, request_validator)
+		:param request_validator: An implementation of
+								  oauthlib.oauth2.RequestValidator.
+		:param token_expires_in: An int or a function to generate a token
+								 expiration offset (in seconds) given a
+								 oauthlib.common.Request object.
+		:param token_generator: A function to generate a token from a request.
+		:param refresh_token_generator: A function to generate a token from a
+										request for the refresh token.
+		:param kwargs: Extra parameters to pass to authorization-,
+					   token-, resource-, and revocation-endpoint constructors.
+		"""
+		auth_grant = AuthorizationCodeGrant(request_validator)
+		refresh_grant = RefreshTokenGrant(request_validator)
+		bearer = BearerToken(request_validator, token_generator,
+							 token_expires_in, refresh_token_generator)
+		AuthorizationEndpoint.__init__(self, default_response_type='code',
+									   response_types={'code': auth_grant},
+									   default_token_type=bearer)
+		TokenEndpoint.__init__(self, default_grant_type='authorization_code',
+							   grant_types={
+								   'authorization_code': auth_grant,
+								   'refresh_token': refresh_grant,
+							   },
+							   default_token_type=bearer)
+		ResourceEndpoint.__init__(self, default_token='Bearer',
+								  token_types={'Bearer': bearer})
+		RevocationEndpoint.__init__(self, request_validator)
 
 
 class MNTOAuthWebRequestValidator(RequestValidator):
@@ -100,11 +100,23 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 	def validate_redirect_uri(self, client_id, redirect_uri, request, *args, **kwargs):
 		# Is the client allowed to use the supplied redirect_uri? i.e. has
 		# the client previously registered this EXACT redirect uri.
+		#DISABLED FOR TESTING: 160904
 		redirect_uris = frappe.db.get_value("OAuth Client", client_id, 'redirect_uris').split(';')
-		if redirect_uri in redirect_uris:
+		
+		# #Quote URIs to compare with redirect_uri param which will be x-url-form-encoded
+		# quoted_uris = []
+		# printstuff(redirect_uris)
+
+		# for uri in redirect_uris:
+		# 	quoted_uris.append(urllib.quote(uri))
+
+		# printstuff(quoted_uris)
+
+		if redirect_uri in redirect_uris: #quoted_uris:
 			return True
 		else:
 			return False
+		#return True
 		
 	def get_default_redirect_uri(self, client_id, request, *args, **kwargs):
 		# The redirect used if none has been supplied.
@@ -225,7 +237,9 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 			# cookie.load()
 			# print cookie['user_id'].value
 
-		return frappe.session.user == urllib.unquote(cookie_dict['user_id'])
+		return frappe.session.user == urllib.unquote(cookie_dict['user_id'] or "Guest")
+
+
 		#TODO : Possible Additional validations
 		#1. Check if client is valid. (Redundant?)
 		#2. Check if session is active.
@@ -301,7 +315,7 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		otoken.access_token = token['access_token']
 		otoken.refresh_token = token['refresh_token']
 		otoken.expires_in = token['expires_in']
-		otoken.save()
+		otoken.save(ignore_permissions=True)
 		frappe.db.commit()
 
 		default_redirect_uri = frappe.db.get_value("OAuth Client", request.client['name'], "default_redirect_uri")
@@ -317,7 +331,7 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 	# Protected resource request
 
 	def validate_bearer_token(self, token, scopes, request):
-		printstuff(token)
+		#printstuff(token)
 		# Remember to check expiration and scope membership
 		otoken = frappe.get_doc("OAuth Bearer Token", token) #{"access_token": str(token)})
 		#dexp = otoken.creation + frappe.utils.datetime.timedelta(seconds=otoken.expires_in)
@@ -461,7 +475,10 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 	# 	"""
 	# 	raise NotImplementedError('Subclasses must implement this method.')
 def get_cookie_dict_from_headers(r):
-	cookie = r.headers.get('Cookie')
-	cookie = cookie.split("; ")
-	cookie_dict = {k:v for k,v in (x.split('=') for x in cookie)}
-	return cookie_dict
+	if r.headers.get('Cookie'):
+		cookie = r.headers.get('Cookie')
+		cookie = cookie.split("; ")
+		cookie_dict = {k:v for k,v in (x.split('=') for x in cookie)}
+		return cookie_dict
+	else:
+		return None

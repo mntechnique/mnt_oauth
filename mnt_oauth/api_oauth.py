@@ -2,7 +2,7 @@
 # License: GNU General Public License v3. See license.txt"
 
 from __future__ import unicode_literals
-import frappe
+import frappe, json
 from mnt_oauth_request_validator import MNTOAuthWebRequestValidator, WebApplicationServer
 from oauthlib.oauth2 import FatalClientError, OAuth2Error
 from urllib import quote, urlencode
@@ -61,6 +61,7 @@ def mnt_approveauth(*args, **kwargs):
 
 @frappe.whitelist(allow_guest=True)
 def mnt_authorize(*args, **kwargs):
+
 	params = get_urlparams_from_kwargs(kwargs)
 
 	if frappe.session['user']=='Guest':
@@ -118,9 +119,16 @@ def mnt_authorize(*args, **kwargs):
 		except OAuth2Error as e:
 			return
 
+def printstuff(s,times=100):
+	for x in xrange(1,times):
+		print s
+
 @frappe.whitelist(allow_guest=True)
 def mnt_gettoken(*args, **kwargs):
 	r = frappe.request
+	
+	###printstuff(r.body)
+	
 	uri = r.url
 	http_method = r.method
 	body = r.get_data()
@@ -128,7 +136,7 @@ def mnt_gettoken(*args, **kwargs):
 
 	try:
 		headers, body, status = oauth_server.create_token_response(uri, http_method, body, headers, credentials)
-		return headers, body, status
+		return json.loads(body)
 	except FatalClientError as e:
 		return e
 
@@ -143,7 +151,7 @@ def mnt_revoketoken(*args, **kwargs):
 
 	headers, body, status = oauth_server.create_revocation_response(uri, headers=headers, body=body, http_method=http_method)
 
-	return headers, body, status
+	return json.loads(body)
 
 @frappe.whitelist(allow_guest=True, xss_safe=True)
 def mnt_testresource(*args, **kwargs):
