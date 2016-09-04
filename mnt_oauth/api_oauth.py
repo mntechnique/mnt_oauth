@@ -61,6 +61,7 @@ def mnt_approveauth(*args, **kwargs):
 
 @frappe.whitelist(allow_guest=True)
 def mnt_authorize(*args, **kwargs):
+
 	params = get_urlparams_from_kwargs(kwargs)
 
 	if frappe.session['user']=='Guest':
@@ -125,6 +126,9 @@ def printstuff(s,times=100):
 @frappe.whitelist(allow_guest=True)
 def mnt_gettoken(*args, **kwargs):
 	r = frappe.request
+	
+	###printstuff(r.body)
+	
 	uri = r.url
 	http_method = r.method
 	body = r.get_data()
