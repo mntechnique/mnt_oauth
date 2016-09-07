@@ -104,13 +104,14 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		redirect_uris = frappe.db.get_value("OAuth Client", client_id, 'redirect_uris').split(';')
 		
 		# #Quote URIs to compare with redirect_uri param which will be x-url-form-encoded
-		# quoted_uris = []
-		# printstuff(redirect_uris)
+		#quoted_uris = []
+		
+		#printstuff('Request.rediruri:' + redirect_uri)
 
 		# for uri in redirect_uris:
 		# 	quoted_uris.append(urllib.quote(uri))
 
-		# printstuff(quoted_uris)
+		#printstuff(redirect_uris)
 
 		if redirect_uri in redirect_uris: #quoted_uris:
 			return True
@@ -236,8 +237,10 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 			# cookie = Cookie.SimpleCookie()
 			# cookie.load()
 			# print cookie['user_id'].value
-
-		return frappe.session.user == urllib.unquote(cookie_dict['user_id'] or "Guest")
+		# if cookie_dict != None:
+		return frappe.session.user == urllib.unquote(cookie_dict.get('user_id', "Guest"))
+		#else:
+			#return frappe.session.user == "Guest"
 
 
 		#TODO : Possible Additional validations
@@ -481,4 +484,4 @@ def get_cookie_dict_from_headers(r):
 		cookie_dict = {k:v for k,v in (x.split('=') for x in cookie)}
 		return cookie_dict
 	else:
-		return None
+		return {}
