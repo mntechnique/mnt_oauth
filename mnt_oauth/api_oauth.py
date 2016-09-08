@@ -117,7 +117,7 @@ def mnt_authorize(*args, **kwargs):
 		except FatalClientError as e:
 			return e
 		except OAuth2Error as e:
-			return
+			return e
 
 def printstuff(s,times=100):
 	for x in xrange(1,times):
@@ -125,9 +125,7 @@ def printstuff(s,times=100):
 
 @frappe.whitelist(allow_guest=True)
 def mnt_gettoken(*args, **kwargs):
-	r = frappe.request
-	
-	###printstuff(r.body)
+	r = frappe.request	
 	
 	uri = r.url
 	http_method = r.method
@@ -136,7 +134,13 @@ def mnt_gettoken(*args, **kwargs):
 
 	try:
 		headers, body, status = oauth_server.create_token_response(uri, http_method, body, headers, credentials)
-		return json.loads(body)
+		out = json.loads(body)
+
+		otoken_user = frappe.db.get_value("OAuth Bearer Token", out.get("access_token"), "user")
+		#Add User ID to token response.
+		out.update({"user_id": otoken_user})
+
+		return out
 	except FatalClientError as e:
 		return e
 
@@ -184,3 +188,34 @@ def mnt_testresource(*args, **kwargs):
 
 	# if valid_token.expiration_time < frappe.datetime.datetime.utils.now() and valid_token.status == "Active":
 	#elif 
+
+import frappe.website.render
+
+@frappe.whitelist(allow_guest=True, xss_safe=True)
+def testfunc(*args, **kwargs):
+	r = frappe.request
+	uri = r.url
+	http_method = r.method
+	body = r.get_data()
+	headers = r.headers
+
+	#frappe.response.headers.add("xyz","abc") Nonetype
+	#frappe.response['headers'] = {"abc":"xyz0"} Nonetype
+
+	
+	
+
+	# #return frappe.website.render.build_response (uri, "Pass", 200, headers={"abc":"xyz"})
+	# frappe.response.headers.add("abc","xyz")
+	
+	# return "x"
+
+
+	# from werkzeug.wrappers import Response
+	# # build response
+	# response = Response()
+	# response.mimetype = 'text/json'
+	# response.charset = 'utf-8'
+	# response.headers[b"ABC"] = "XYZ".encode("utf-8")
+	# response.data = "BLAH".encode("utf-8")
+	# return response
