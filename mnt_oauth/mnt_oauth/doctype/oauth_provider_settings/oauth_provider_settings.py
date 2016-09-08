@@ -16,9 +16,10 @@ class OAuthProviderSettings(Document):
 
 def get_oauth_settings():
 	"""Returns oauth settings"""
-	out = {
-		"provider_url" : frappe.db.get_value("OAuth Provider Settings", None, "provider_url")
-	}
+	out = frappe._dict({
+		"provider_url" : frappe.db.get_value("OAuth Provider Settings", None, "provider_url"),
+		"skip_authorization" : frappe.db.get_value("OAuth Provider Settings", None, "skip_authorization")
+	})
 
 	if not out["provider_url"]:
 		frappe.throw(_("Please set the Provider URL in OAuth Provider Settings"))
