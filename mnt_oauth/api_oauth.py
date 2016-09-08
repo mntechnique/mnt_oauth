@@ -61,8 +61,10 @@ def mnt_approveauth(*args, **kwargs):
 
 @frappe.whitelist(allow_guest=True)
 def mnt_authorize(*args, **kwargs):
-
+	#Fetch provider URL from settings
+	oauth_settings = get_oauth_settings()
 	params = get_urlparams_from_kwargs(kwargs)
+	success_url = oauth_settings["provider_url"] + "/api/method/mnt_oauth.api_oauth.mnt_approveauth?" + params
 
 	if frappe.session['user']=='Guest':
 		#Force login, redirect to preauth again.
@@ -79,40 +81,23 @@ def mnt_authorize(*args, **kwargs):
 
 			scopes, credentials = oauth_server.validate_authorization_request(uri, http_method, body, headers)	
 
-			#skipauth = frappe.db.get_value("OAuth Client", credentials['client_id'], "skip_authorization")
-
-			# if skipauth:
-				
-			# 	headers, body, status = oauth_server.create_authorization_response(uri=credentials['redirect_uri'], \
-			# 		body=body, headers=headers, scopes=scopes, credentials=credentials)
-			# 	uri = headers.get('Location', None)
-
-			# 	frappe.local.response["type"] = "redirect"
-			# 	frappe.local.response["location"] = uri
-
-			# if hasvalidtoken(credentials['client_id'], scopes):
-			# 	headers, body, status = oauth_server.create_authorization_response(uri, http_method, body, headers, scopes, credentials)
-			# 	uri = headers.get('Location', None)
-
-			# 	#return uri, headers, body, status
-			# 	frappe.local.response["type"] = "redirect"
-			# 	frappe.local.response["location"] = url
-			# else:
-
-			#Fetch provider URL from settings
-			oauth_settings = get_oauth_settings()
-	
-			success_url = oauth_settings["provider_url"] + "/api/method/mnt_oauth.api_oauth.mnt_approveauth?" + params
+			skipauth = frappe.db.get_value("OAuth Client", credentials['client_id'], "skip_authorization")
+			unrevoked_tokens = frappe.get_all("OAuth Bearer Token", filters={"status":"Active"})
 			
-			#Show Allow/Deny screen.
-			response_html_params = frappe._dict({
-				"client_id": frappe.db.get_value("OAuth Client", kwargs['client_id'], "app_name"),
-				"success_url": success_url,
-				"details": scopes,
-				"error": ""
-			})
-			resp_html = frappe.render_template("mnt_oauth/templates/includes/mnt_oauth_confirmation.html", response_html_params)
-			frappe.respond_as_web_page("MNT OAuth Conf.", resp_html)
+			if skipauth or (oauth_settings["skip_authorization"] == "Auto" and len(unrevoked_tokens)):
+
+				frappe.local.response["type"] = "redirect"
+				frappe.local.response["location"] = success_url
+			else:
+				#Show Allow/Deny screen.
+				response_html_params = frappe._dict({
+					"client_id": frappe.db.get_value("OAuth Client", kwargs['client_id'], "app_name"),
+					"success_url": success_url,
+					"details": scopes,
+					"error": ""
+				})
+				resp_html = frappe.render_template("mnt_oauth/templates/includes/mnt_oauth_confirmation.html", response_html_params)
+				frappe.respond_as_web_page("MNT OAuth Conf.", resp_html)
 
 		except FatalClientError as e:
 			return e
