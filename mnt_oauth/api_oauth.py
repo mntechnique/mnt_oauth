@@ -9,7 +9,6 @@ from urllib import quote, urlencode
 from mnt_oauth.doctype.oauth_provider_settings.oauth_provider_settings import get_oauth_settings
 from mnt_oauth_provider_decorator import OAuth2ProviderDecorator 
 
-
 #Variables required across requests
 oauth_validator = MNTOAuthWebRequestValidator()
 oauth_server  = WebApplicationServer(oauth_validator)
@@ -24,17 +23,6 @@ def get_urlparams_from_kwargs(param_kwargs):
 		arguments.pop("cmd")
 
 	return urlencode(arguments)
-
-# def hasvalidtoken(client, scopes):
-# 	tokens = frappe.get_all("OAuth Bearer Token", fields=["name", "scopes"], \
-# 		filters=[['client', '=', client], ['status', '=', 'Active'], ['expiration_time', '>', frappe.utils.datetime.datetime.now()]])
-# 		# check past authorizations regarded the same scopes as the current one
-# 	token_names = []
-# 	for token in tokens:
-# 		if token["scopes"] in scopes:
-# 			return True
-# 	return False
-
 
 @frappe.whitelist()
 def mnt_approveauth(*args, **kwargs):
@@ -65,6 +53,7 @@ def mnt_authorize(*args, **kwargs):
 	oauth_settings = get_oauth_settings()
 	params = get_urlparams_from_kwargs(kwargs)
 	success_url = oauth_settings["provider_url"] + "/api/method/mnt_oauth.api_oauth.mnt_approveauth?" + params
+	failure_url = oauth_settings["provider_url"] + "/api/method/mnt_oauth.api_oauth.mnt_res_access_denied"
 
 	if frappe.session['user']=='Guest':
 		#Force login, redirect to preauth again.
@@ -93,20 +82,16 @@ def mnt_authorize(*args, **kwargs):
 				response_html_params = frappe._dict({
 					"client_id": frappe.db.get_value("OAuth Client", kwargs['client_id'], "app_name"),
 					"success_url": success_url,
-					"details": scopes,
-					"error": ""
+					"failure_url": failure_url,
+					"details": scopes
 				})
 				resp_html = frappe.render_template("mnt_oauth/templates/includes/mnt_oauth_confirmation.html", response_html_params)
-				frappe.respond_as_web_page("MNT OAuth Conf.", resp_html)
+				frappe.respond_as_web_page("Confirm Access", resp_html)
 
 		except FatalClientError as e:
 			return e
 		except OAuth2Error as e:
 			return e
-
-def printstuff(s,times=100):
-	for x in xrange(1,times):
-		print s
 
 @frappe.whitelist(allow_guest=True)
 def mnt_gettoken(*args, **kwargs):
@@ -129,7 +114,6 @@ def mnt_gettoken(*args, **kwargs):
 	except FatalClientError as e:
 		return e
 
-
 @frappe.whitelist(allow_guest=True)
 def mnt_revoketoken(*args, **kwargs):
 	r = frappe.request
@@ -150,9 +134,6 @@ def mnt_testresource(*args, **kwargs):
 	body = r.get_data()
 	headers = r.headers
 
-	# for x in xrange(1,20):
-	# 	print r
-		
 	if not kwargs["access_token"]:
 		return "Access Token Required"
 
@@ -160,47 +141,15 @@ def mnt_testresource(*args, **kwargs):
 
 	valid, oauthlib_request = oauth_server.verify_request(uri, http_method, body, headers, required_scopes)
 
-
 	if valid:
 	 	return "Access Granted"
 	else:
 		return "403: Forbidden"
-		
-	# if not kwargs["access_token"]:
-	# 	return "Access Token Required"
-	
-	# valid_token = frappe.get_doc("OAuth Bearer Token", kwargs["access_token"])
 
-	# if valid_token.expiration_time < frappe.datetime.datetime.utils.now() and valid_token.status == "Active":
-	#elif 
-
-import frappe.website.render
-
-@frappe.whitelist(allow_guest=True, xss_safe=True)
-def testfunc(*args, **kwargs):
-	r = frappe.request
-	uri = r.url
-	http_method = r.method
-	body = r.get_data()
-	headers = r.headers
-
-	#frappe.response.headers.add("xyz","abc") Nonetype
-	#frappe.response['headers'] = {"abc":"xyz0"} Nonetype
-
-	
-	
-
-	# #return frappe.website.render.build_response (uri, "Pass", 200, headers={"abc":"xyz"})
-	# frappe.response.headers.add("abc","xyz")
-	
-	# return "x"
-
-
-	# from werkzeug.wrappers import Response
-	# # build response
-	# response = Response()
-	# response.mimetype = 'text/json'
-	# response.charset = 'utf-8'
-	# response.headers[b"ABC"] = "XYZ".encode("utf-8")
-	# response.data = "BLAH".encode("utf-8")
-	# return response
+@frappe.whitelist()
+def mnt_res_access_denied(*args, **kwargs):
+	resp_html = """
+	<div class="well text-center">
+		<p>Access to resource the app is trying to reach is denied.</p>
+	</div>"""
+	frappe.respond_as_web_page("Resource Access Denied", resp_html)

@@ -22,7 +22,7 @@ app_license = "MIT"
 # web_include_css = "/assets/mnt_oauth/css/mnt_oauth.css"
 # web_include_js = "/assets/mnt_oauth/js/mnt_oauth.js"
 
-boot_session = "mnt_oauth.mnt_oauth_boot.boot_session"
+# boot_session = "mnt_oauth.mnt_oauth_boot.boot_session"
 
 # Home Pages
 # ----------

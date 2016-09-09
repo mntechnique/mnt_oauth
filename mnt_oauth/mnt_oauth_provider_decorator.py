@@ -1,7 +1,6 @@
 import frappe
 import functools
 
-
 class OAuth2ProviderDecorator(object):
 
     def __init__(self, resource_endpoint):
