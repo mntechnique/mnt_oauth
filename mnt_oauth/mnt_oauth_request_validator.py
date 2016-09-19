@@ -223,7 +223,7 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		else:
 			#Extract token, instantiate OAuth Bearer Token and use clientid from there.
 			#querystring = parse_qs(urlparse(request["url"]).query)
-			if frappe.form_dict["refresh_token"]:
+			if frappe.form_dict.has_key("refresh_token"):
 				oc = frappe.get_doc("OAuth Client", frappe.db.get_value("OAuth Bearer Token", {"refresh_token": frappe.form_dict["refresh_token"]}, 'client'))
 			else:
 				oc = frappe.get_doc("OAuth Client", frappe.db.get_value("OAuth Bearer Token", frappe.form_dict["token"], 'client'))	
