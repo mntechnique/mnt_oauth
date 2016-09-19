@@ -223,7 +223,10 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		else:
 			#Extract token, instantiate OAuth Bearer Token and use clientid from there.
 			#querystring = parse_qs(urlparse(request["url"]).query)
-			oc = frappe.get_doc("OAuth Client", frappe.db.get_value("OAuth Bearer Token", frappe.form_dict["token"], 'client'))	
+			if frappe.form_dict.has_key("refresh_token"):
+				oc = frappe.get_doc("OAuth Client", frappe.db.get_value("OAuth Bearer Token", {"refresh_token": frappe.form_dict["refresh_token"]}, 'client'))
+			else:
+				oc = frappe.get_doc("OAuth Client", frappe.db.get_value("OAuth Bearer Token", frappe.form_dict["token"], 'client'))	
 		try:
 			request.client = request.client or oc.as_dict()
 		except Exception, e:
@@ -342,6 +345,9 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 			and otoken.status != "Revoked"
 		#is_token_valid = is_token_valid and otoken.status == ""
 
+		# printstuff(frappe.utils.datetime.datetime.now())
+		# printstuff(otoken.expiration_time)
+
 		client_scopes = frappe.db.get_value("OAuth Client", otoken.client, 'scopes').split(';')
 		are_scopes_valid = True
 		for scp in scopes:
@@ -353,6 +359,9 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		# 	print otoken.access_token + ": " + token
 		# 	print "scopes: " + str(are_scopes_valid)
 		# 	print "tokentimevalid: " + str(is_token_valid)
+
+		# printstuff(is_token_valid)
+		# printstuff(are_scopes_valid)
 
 		return is_token_valid and are_scopes_valid
 

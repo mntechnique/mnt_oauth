@@ -140,7 +140,11 @@ def mnt_revoketoken(*args, **kwargs):
 
 	headers, body, status = oauth_server.create_revocation_response(uri, headers=headers, body=body, http_method=http_method)
 
-	return json.loads(body)
+	#return body
+
+	frappe.local.response = frappe._dict({"status": status}) 
+
+	##return headers, body, status
 
 @frappe.whitelist(allow_guest=True, xss_safe=True)
 def mnt_testresource(*args, **kwargs):
