@@ -171,7 +171,7 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		oac.client = client_id
 		oac.user = urllib.unquote(cookie_dict['user_id'])
 		oac.authorization_code = code['code']
-		oac.save()
+		oac.save(ignore_permissions=True)
 		frappe.db.commit()
 
 		#redirect_uri gets linked to OAC Auth Code via Client link field.
@@ -314,7 +314,7 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		# access_token to now + expires_in seconds.
 		#		printstuff(request)
 
-		otoken = frappe.new_doc("OAuth Bearer Token")
+		otoken = frappe.new_doc("OAuth Bearer To`ken")
 		otoken.client = request.client['name']
 		otoken.user = request.user
 		otoken.scopes = ";".join(request.scopes)
