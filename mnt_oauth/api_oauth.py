@@ -6,7 +6,8 @@ import frappe, json
 from mnt_oauth_request_validator import MNTOAuthWebRequestValidator, WebApplicationServer
 from oauthlib.oauth2 import FatalClientError, OAuth2Error
 from urllib import quote, urlencode
-from mnt_oauth.doctype.oauth_provider_settings.oauth_provider_settings import get_oauth_settings
+from urlparse import urlparse
+#from mnt_oauth.doctype.oauth_provider_settings.oauth_provider_settings import get_oauth_settings
 from mnt_oauth_provider_decorator import OAuth2ProviderDecorator 
 
 
@@ -63,8 +64,8 @@ def mnt_approveauth(*args, **kwargs):
 def mnt_authorize(*args, **kwargs):
 	#Fetch provider URL from settings
 	oauth_settings = get_oauth_settings()
-	params = get_urlparams_from_kwargs(kwargs)
-	success_url = oauth_settings["provider_url"] + "/api/method/mnt_oauth.api_oauth.mnt_approveauth?" + params
+	request_url = urlparse(frappe.request.url)
+	success_url = request_url.scheme + "://" + request_url.netloc + "/api/method/mnt_oauth.api_oauth.mnt_approveauth?" + params
 
 	if frappe.session['user']=='Guest':
 		#Force login, redirect to preauth again.

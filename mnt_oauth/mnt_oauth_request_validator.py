@@ -2,7 +2,7 @@ import frappe
 from frappe import database
 from oauthlib.oauth2 import RequestValidator
 from oauthlib.common import Request
-from mnt_oauth.doctype.oauth_client.oauth_client import OAuthClient
+#from mnt_oauth.doctype.oauth_client.oauth_client import OAuthClient
 import urllib
 
 from urlparse import parse_qs, urlparse
