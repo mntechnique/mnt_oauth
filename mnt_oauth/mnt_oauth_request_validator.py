@@ -314,17 +314,17 @@ class MNTOAuthWebRequestValidator(RequestValidator):
 		# access_token to now + expires_in seconds.
 		#		printstuff(request)
 
-		otoken = frappe.new_doc("OAuth Bearer To`ken")
+		otoken = frappe.new_doc("OAuth Bearer Token")
 		otoken.client = request.client['name']
-		otoken.user = request.user
+		otoken.user = request.user if request.user else frappe.db.get_value("OAuth Bearer Token", {"refresh_token":request.body.get("refresh_token")}, "user")
 		otoken.scopes = ";".join(request.scopes)
-		otoken.access_token = token['access_token']
-		otoken.refresh_token = token['refresh_token']
+		otoken.access_token = token.get('access_token')
+		otoken.refresh_token = token.get('refresh_token')
 		otoken.expires_in = token['expires_in']
 		otoken.save(ignore_permissions=True)
 		frappe.db.commit()
 
-		default_redirect_uri = frappe.db.get_value("OAuth Client", request.client['name'], "default_redirect_uri")
+		default_redirect_uri = frappe.db.get_value("OAuth Client", request.client.get('name'), "default_redirect_uri")
 		return default_redirect_uri
 
 	def invalidate_authorization_code(self, client_id, code, request, *args, **kwargs):
